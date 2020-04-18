@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 // bindataRead reads the given file from disk. It returns an error on failure.
@@ -28,9 +29,46 @@ type asset struct {
 	info  os.FileInfo
 }
 
+type bindataFileInfo struct {
+	name    string
+	size    int64
+	mode    os.FileMode
+	modTime time.Time
+}
+
+// Name return file name
+func (fi bindataFileInfo) Name() string {
+	return fi.name
+}
+
+// Size return file size
+func (fi bindataFileInfo) Size() int64 {
+	return fi.size
+}
+
+// Mode return file mode
+func (fi bindataFileInfo) Mode() os.FileMode {
+	return fi.mode
+}
+
+// ModTime return file modify time
+func (fi bindataFileInfo) ModTime() time.Time {
+	return fi.modTime
+}
+
+// IsDir return file whether a directory
+func (fi bindataFileInfo) IsDir() bool {
+	return fi.mode&os.ModeDir != 0
+}
+
+// Sys return file is sys mode
+func (fi bindataFileInfo) Sys() interface{} {
+	return nil
+}
+
 // inATestAsset reads file data from disk. It returns an error on failure.
 func inATestAsset() (*asset, error) {
-	path := "/Users/liwei/myworkspaces/go/go-bindata/testdata/in/a/test.asset"
+	path := "/Users/Alex/go/src/gitlab.com/arpabet/go-bindata/testdata/in/a/test.asset"
 	name := "in/a/test.asset"
 	bytes, err := bindataRead(path, name)
 	if err != nil {
@@ -48,7 +86,7 @@ func inATestAsset() (*asset, error) {
 
 // inBTestAsset reads file data from disk. It returns an error on failure.
 func inBTestAsset() (*asset, error) {
-	path := "/Users/liwei/myworkspaces/go/go-bindata/testdata/in/b/test.asset"
+	path := "/Users/Alex/go/src/gitlab.com/arpabet/go-bindata/testdata/in/b/test.asset"
 	name := "in/b/test.asset"
 	bytes, err := bindataRead(path, name)
 	if err != nil {
@@ -66,7 +104,7 @@ func inBTestAsset() (*asset, error) {
 
 // inCTestAsset reads file data from disk. It returns an error on failure.
 func inCTestAsset() (*asset, error) {
-	path := "/Users/liwei/myworkspaces/go/go-bindata/testdata/in/c/test.asset"
+	path := "/Users/Alex/go/src/gitlab.com/arpabet/go-bindata/testdata/in/c/test.asset"
 	name := "in/c/test.asset"
 	bytes, err := bindataRead(path, name)
 	if err != nil {
@@ -84,7 +122,7 @@ func inCTestAsset() (*asset, error) {
 
 // inTestAsset reads file data from disk. It returns an error on failure.
 func inTestAsset() (*asset, error) {
-	path := "/Users/liwei/myworkspaces/go/go-bindata/testdata/in/test.asset"
+	path := "/Users/Alex/go/src/gitlab.com/arpabet/go-bindata/testdata/in/test.asset"
 	name := "in/test.asset"
 	bytes, err := bindataRead(path, name)
 	if err != nil {
