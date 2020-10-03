@@ -1,4 +1,4 @@
-module gitlab.com/arpabet/go-bindata
+module github.com/arpabet/go-bindata
 
 go 1.12
 
