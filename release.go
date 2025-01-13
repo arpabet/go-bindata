@@ -70,23 +70,24 @@ func writeReleaseAsset(w io.Writer, c *Config, asset *Asset) error {
 
 	defer fd.Close()
 
+	var size int64
 	if c.NoCompress {
 		if c.NoMemCopy {
-			err = uncompressed_nomemcopy(w, asset, fd)
+			size, err = uncompressed_nomemcopy(w, asset, fd)
 		} else {
-			err = uncompressed_memcopy(w, asset, fd)
+			size, err = uncompressed_memcopy(w, asset, fd)
 		}
 	} else {
 		if c.NoMemCopy {
-			err = compressed_nomemcopy(w, asset, fd)
+			size, err = compressed_nomemcopy(w, asset, fd)
 		} else {
-			err = compressed_memcopy(w, asset, fd)
+			size, err = compressed_memcopy(w, asset, fd)
 		}
 	}
 	if err != nil {
 		return err
 	}
-	return asset_release_common(w, c, asset)
+	return asset_release_common(w, c, asset, size)
 }
 
 // sanitize prepares a valid UTF-8 string as a raw string constant.
@@ -367,18 +368,34 @@ func (fi bindataFileInfo) Sys() interface{} {
 	return err
 }
 
-func compressed_nomemcopy(w io.Writer, asset *Asset, r io.Reader) error {
-	_, err := fmt.Fprintf(w, `var _%s = "`, asset.Func)
+// countingWriter counts how many bytes have been written to it.
+type countingWriter struct {
+	w io.Writer
+	cnt int64
+}
+
+func (t *countingWriter) Write(p []byte) (n int, err error) {
+	n, err = t.w.Write(p)
+	if err == nil {
+		t.cnt += int64(n)
+	}
+	return
+}
+
+func compressed_nomemcopy(w io.Writer, asset *Asset, r io.Reader) (n int64, err error) {
+	_, err = fmt.Fprintf(w, `var _%s = "`, asset.Func)
 	if err != nil {
-		return err
+		return
 	}
 
-	gz := gzip.NewWriter(&StringWriter{Writer: w})
+	cw := countingWriter{ w: &StringWriter{Writer: w} }
+	gz := gzip.NewWriter(&cw)
 	_, err = io.Copy(gz, r)
 	gz.Close()
+	n = cw.cnt
 
 	if err != nil {
-		return err
+		return
 	}
 
 	_, err = fmt.Fprintf(w, `"
@@ -391,21 +408,23 @@ func %sBytes() ([]byte, error) {
 }
 
 `, asset.Func, asset.Func, asset.Name)
-	return err
+	return
 }
 
-func compressed_memcopy(w io.Writer, asset *Asset, r io.Reader) error {
-	_, err := fmt.Fprintf(w, `var _%s = []byte("`, asset.Func)
+func compressed_memcopy(w io.Writer, asset *Asset, r io.Reader) (n int64, err error) {
+	_, err = fmt.Fprintf(w, `var _%s = []byte("`, asset.Func)
 	if err != nil {
-		return err
+		return
 	}
 
-	gz := gzip.NewWriter(&StringWriter{Writer: w})
+	cw := countingWriter{ w: &StringWriter{Writer: w} }
+	gz := gzip.NewWriter(&cw)
 	_, err = io.Copy(gz, r)
 	gz.Close()
+	n = cw.cnt
 
 	if err != nil {
-		return err
+		return
 	}
 
 	_, err = fmt.Fprintf(w, `")
@@ -418,18 +437,18 @@ func %sBytes() ([]byte, error) {
 }
 
 `, asset.Func, asset.Func, asset.Name)
-	return err
+	return
 }
 
-func uncompressed_nomemcopy(w io.Writer, asset *Asset, r io.Reader) error {
-	_, err := fmt.Fprintf(w, `var _%s = "`, asset.Func)
+func uncompressed_nomemcopy(w io.Writer, asset *Asset, r io.Reader) (n int64, err error) {
+	_, err = fmt.Fprintf(w, `var _%s = "`, asset.Func)
 	if err != nil {
-		return err
+		return
 	}
 
-	_, err = io.Copy(&StringWriter{Writer: w}, r)
+	n, err = io.Copy(&StringWriter{Writer: w}, r)
 	if err != nil {
-		return err
+		return
 	}
 
 	_, err = fmt.Fprintf(w, `"
@@ -442,22 +461,25 @@ func %sBytes() ([]byte, error) {
 }
 
 `, asset.Func, asset.Func, asset.Name)
-	return err
+	return
 }
 
-func uncompressed_memcopy(w io.Writer, asset *Asset, r io.Reader) error {
-	_, err := fmt.Fprintf(w, `var _%s = []byte(`, asset.Func)
+func uncompressed_memcopy(w io.Writer, asset *Asset, r io.Reader) (n int64, err error) {
+	_, err = fmt.Fprintf(w, `var _%s = []byte(`, asset.Func)
 	if err != nil {
-		return err
+		return
 	}
 
 	b, err := ioutil.ReadAll(r)
 	if err != nil {
-		return err
+		return
 	}
 	if utf8.Valid(b) && !bytes.Contains(b, []byte{0}) {
-		fmt.Fprintf(w, "`%s`", sanitize(b))
+		b = sanitize(b)
+		n = int64(len(b))
+		fmt.Fprintf(w, "`%s`", b)
 	} else {
+		n = int64(len(b))
 		fmt.Fprintf(w, "%+q", b)
 	}
 
@@ -468,10 +490,10 @@ func %sBytes() ([]byte, error) {
 }
 
 `, asset.Func, asset.Func)
-	return err
+	return
 }
 
-func asset_release_common(w io.Writer, c *Config, asset *Asset) error {
+func asset_release_common(w io.Writer, c *Config, asset *Asset, size int64) error {
 	fi, err := os.Stat(asset.Path)
 	if err != nil {
 		return err
@@ -479,7 +501,6 @@ func asset_release_common(w io.Writer, c *Config, asset *Asset) error {
 
 	mode := uint(fi.Mode())
 	modTime := fi.ModTime().Unix()
-	size := fi.Size()
 	if c.NoMetadata {
 		mode = 0
 		modTime = 0

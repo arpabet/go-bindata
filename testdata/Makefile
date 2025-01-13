@@ -27,7 +27,7 @@ out/nocompress-nomemcopy.go: $(wildcard in/**/*) $(GOPATH)/bin/go-bindata
 	$(GOPATH)/bin/go-bindata -nocompress -nomemcopy -o $@ in/...
 
 errcheck:
-	go get github.com/kisielk/errcheck
+	go get -d github.com/kisielk/errcheck
 
 golint:
-	go get golang.org/x/lint/golint
+	go get -d golang.org/x/lint/golint
